@@ -622,18 +622,6 @@ export default function HomePage() {
                     <Button type="button" variant="primary" onClick={() => router.push('/dashboard')}>
                       Get started
                     </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={() => window.open('https://docs.midnight.network', '_blank')}
-                      style={{
-                        borderColor: 'rgba(255,255,255,0.2)',
-                        backgroundColor: 'transparent',
-                        color: '#E4E4E7',
-                      }}
-                    >
-                      Documentation
-                    </Button>
                   </motion.div>
                 </div>
 
