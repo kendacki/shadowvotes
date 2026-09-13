@@ -1,118 +1,163 @@
-# ShadowVote
+<div align="center" style="font-family: 'Times New Roman', Times, serif;">
 
-Private governance on **Midnight**: token-gated participation, zero-knowledge votes through **Lace**, and tallies in real time—without linking votes to wallet addresses on-chain.
+<img src="public/shadowvote-emblem.svg" alt="ShadowVote emblem" width="96" />
+
+<h1 style="font-family: 'Times New Roman', Times, serif; letter-spacing: 0.04em; margin-bottom: 0.35em;">ShadowVote</h1>
+
+<p style="font-family: 'Times New Roman', Times, serif; font-size: 1.15em; font-style: italic; max-width: 42em; margin: 0 auto 1.25em;">
+Private governance on Midnight — people and DAOs vote with zero-knowledge proofs, so ballots never attach to wallet addresses on-chain.
+</p>
+
+<p>
+<a href="#how-it-works">How it works</a> ·
+<a href="#features">Features</a> ·
+<a href="#network-deployments">Live deployment</a> ·
+<a href="#local-development">Develop</a> ·
+<a href="#deploying-to-vercel">Deploy</a>
+</p>
+
+</div>
+
+<div style="font-family: 'Times New Roman', Times, serif; line-height: 1.7; font-size: 16px;">
+
+---
+
+**ShadowVote** is an open DAO on [Midnight](https://midnight.network/): token-gated participation, zero-knowledge votes through **Lace**, and live tallies — without linking a vote to a wallet on the public ledger.
+
+There is no voter registry and no admin allowlist. Anyone who meets the unshielded **tNIGHT** gate can prove a ballot in the browser, submit it through Lace, and leave only a nullifier and a count on-chain.
+
+---
+
+## How it works
+
+ShadowVote is a frictionless **public DAO**. You do not pre-register, and no operator approves your wallet. Voting is three phases: a token gate in the app, a local ZK proof, then an on-chain tally that never records your address.
+
+### Phase 1 — Connection and token gate
+
+To keep spam and cheap Sybil identities out of the UI, ShadowVote enforces a minimum **unshielded tNIGHT** balance before a local voter secret is used for proofs.
+
+1. Connect **Midnight Lace** to the dApp.
+2. The app reads unshielded balances on Midnight.
+3. **Rule:** at least **1,000 tNIGHT** (configurable via `NEXT_PUBLIC_SHADOWVOTE_MIN_TNIGHT`). Below that, governance actions stay locked.
+
+*The gate is enforced in the application (`utils/tNightGate.ts`). The Compact contract records proofs and nullifiers — not a Merkle membership list or a Supabase `registered_voters` table.*
+
+### Phase 2 — Private proof generation (off-chain)
+
+After the gate, you vote without putting your wallet on the ballot.
+
+1. Open a proposal and choose **Yes** or **No**.
+2. The frontend generates a **zero-knowledge proof** locally (Midnight JS + Compact artifacts), not a transaction that lists your address as the voter.
+3. The proof attests that a valid secret is entitled to this ballot **without revealing who you are**.
+4. A **nullifier** is derived from your secret and the proposal — a one-time mark so the same secret cannot vote twice on that proposal.
+
+### Phase 3 — Cast on-chain
+
+1. Lace asks you to sign a transaction that carries the proof and nullifier.
+2. The Midnight contract checks the ZK statement and rejects a reused nullifier.
+3. If valid, **Yes** / **No** counts update in public state. The ledger does not store a mapping from that vote to your wallet.
+
+```
+Lace wallet  →  tNIGHT gate (app)  →  ZK proof + nullifier (browser)
+                                              ↓
+                              Compact contract (Midnight)
+                                              ↓
+                         Public tally  ·  hidden voter
+```
+
+---
 
 ## Features
 
-- **ZK voting** — Compact contract (`contracts/shadowvote.compact`) with local proof generation via Midnight JS and your configured ZK artifacts.
-- **Open DAO (no registry)** — Voting does not use a Merkle allowlist or Supabase `registered_voters`. Eligibility is enforced in the app via **minimum unshielded tNIGHT** before a local voter secret is used for ZK proofs.
-- **Sybil resistance** — Per-(secret, proposal) nullifiers on the public ledger; the app computes nullifiers locally and surfaces **Vote cast** when your nullifier appears (`utils/crypto.ts`).
-- **Live sync** — Contract state stream (RxJS) plus polling fallback in `useShadowVote` so tallies and nullifier sets stay current.
-- **Network awareness** — Amber banner on non-mainnet builds (`components/NetworkBanner.tsx`, `config/network.ts`).
-- **Polished UX** — [Stitches](https://stitches.dev/) design tokens, [Framer Motion](https://www.framer.com/motion/) transitions, global toasts.
+| | |
+| :--- | :--- |
+| **ZK voting** | Compact circuit in `contracts/shadowvote.compact`. Proofs via Midnight JS and published ZK artifacts. |
+| **Open DAO** | No Merkle allowlist. Eligibility is the unshielded tNIGHT check, then a local voter secret. |
+| **Sybil / double-vote control** | Per-(secret, proposal) nullifiers on the public ledger. The app computes yours locally and shows **Vote cast** when it appears (`utils/crypto.ts`). |
+| **Live sync** | Indexer contract stream (RxJS) plus polling fallback in `useShadowVote` for tallies and nullifier sets. |
+| **Network awareness** | Amber banner on non-mainnet builds (`components/NetworkBanner.tsx`, `config/network.ts`). |
+| **Polished UX** | Stitches tokens, Framer Motion, global toasts. |
 
-## How the Voting Mechanism Works
+---
 
-ShadowVote operates as a frictionless, "Public DAO." To participate, users do not need to pre-register or wait for an admin to approve their wallet. The entire voting process is instant and entirely decentralized, broken down into three simple steps:
+## Network deployments
 
-### Phase 1: Connection & Verification (Token Gate)
-To protect the system from spam and fake accounts (Sybil attacks), ShadowVote uses a strictly enforced, on-chain token gate.
-1. A user connects their Midnight Lace wallet to the dApp.
-2. The application instantly checks the wallet's balance on the Midnight network.
-3. **The Rule:** The wallet must hold a minimum of **1000 tNIGHT** tokens to participate. If the balance is insufficient, the UI locks the voting mechanism. 
+ShadowVote is live on **Midnight Preprod**. Use Lace and testnet tNIGHT (faucet) to transact.
 
-### Phase 2: Private Proof Generation (Off-Chain)
-If the user passes the token gate, they are cleared to vote without ever exposing their identity.
-1. The user reviews the active proposal and selects "Yes" or "No".
-2. Instead of sending the user's wallet address to the blockchain, the ShadowVote frontend silently generates a **Zero-Knowledge (ZK) Proof** in the browser. 
-3. This cryptographic proof acts as a mathematical receipt that says: *"I hold the required tokens and am authorized to vote, but I will not reveal my identity."*
-4. Alongside the proof, the system generates a unique **Nullifier** (a one-time passcode tied cryptographically to the proposal).
+| | |
+| :--- | :--- |
+| **Network** | Midnight Preprod |
+| **Contract** | `b1eb2448c2164288361542720e1b8a822a28c5f05bd1a1456fb24fa293536a65` |
+| **Wallet** | [Lace Midnight Preview](https://chromewebstore.google.com/detail/lace-midnight-preview/hgeekaiplokcnmakghbdfbgnlfheichg) |
 
-### Phase 3: Casting the Vote (On-Chain)
-The final step is submitting the mathematically disguised vote to the network.
-1. The user's wallet prompts them to sign the transaction containing the ZK Proof and Nullifier.
-2. The Midnight smart contract receives the transaction. 
-3. The contract validates the ZK math. It also checks the Nullifier to ensure this specific anonymous user hasn't already voted on this proposal.
-4. If valid, the vote is added to the public tally, but the voter's identity and wallet address remain 100% hidden.
+---
 
 ## Tech stack
 
 | Layer | Choice |
-| --- | --- |
-| App framework | **Next.js 15** (App Router) |
-| Styling | **@stitches/react** (`stitches.config.ts`) |
-| Animation | **framer-motion** |
-| On-chain / ZK | **@midnight-ntwrk/midnight-js***, **compact-js**, **compact-runtime**, **ledger-v8**, Lace **dapp-connector-api** |
-| Contract source | **Compact** (`*.compact`) → managed JS in `build/contract` |
-| State / async | **RxJS** (indexer contract observables) |
+| :--- | :--- |
+| App | **Next.js 15** (App Router) |
+| Style | **@stitches/react** (`stitches.config.ts`) |
+| Motion | **framer-motion** |
+| On-chain / ZK | **@midnight-ntwrk/midnight-js**, compact-js, compact-runtime, ledger-v8, Lace **dapp-connector-api** |
+| Contract | **Compact** (`*.compact`) → managed JS in `build/contract` |
+| State | **RxJS** (indexer contract observables) |
 
-\*Exact package versions are pinned in `package.json`.
+Versions are pinned in `package.json`.
 
-## Prerequisites
+**Prerequisites:** Node.js **20+**, Lace on Preprod for public networks, **Docker** recommended for the local proof server.
 
-- **Node.js** 20+ recommended (aligned with Next 15 and Midnight JS).
-- **Lace** (or compatible wallet) on **Preprod** when testing public networks.
-- **Docker** (optional but recommended) for the local **proof server** used by scripts and CLI flows.
-
-##  Network Deployments
-
-ShadowVote is currently deployed on the Midnight test network. You can interact with the live contract using the following details:
-
-- **Network:** Midnight Preprod
-- **Contract Address:** `b1eb2448c2164288361542720e1b8a822a28c5f05bd1a1456fb24fa293536a65`
-- **Wallet Extension:** Requires [Midnight Lace Wallet] https://chromewebstore.google.com/detail/lace-midnight-preview/hgeekaiplokcnmakghbdfbgnlfheichg to interact via the browser.
-
-*(Note: Because this is deployed on the Preprod network, you will need tNight tokens from the Midnight Faucet to execute transactions).*
+---
 
 ## Local development
 
 ### 1. Clone and install
 
 ```bash
-git clone <your-fork-or-repo-url> shadowvote
-cd shadowvote
+git clone https://github.com/kendacki/shadowvotes.git
+cd shadowvotes
 npm install
 npm run setup
 ```
 
-`npm run setup` creates `.env` from `.env.example` if missing, fills browser/private-state passwords when empty, and prints a short health report (including whether the proof server port responds). Read-only check: `npm run setup:check`.
+`npm run setup` creates `.env` from `.env.example` if needed, fills empty private-state passwords, and prints a short health report (including whether the proof-server port responds). Read-only: `npm run setup:check`.
 
 ### 2. Environment
 
-Copy `.env.example` to `.env` and fill at least (or use `npm run setup` to bootstrap the file and passwords):
+Copy `.env.example` to `.env`, or let `npm run setup` bootstrap it. Minimum:
 
 | Variable | Purpose |
-| --- | --- |
+| :--- | :--- |
 | `NEXT_PUBLIC_SHADOWVOTE_CONTRACT_ADDRESS` | Deployed ledger address (hex). |
-| `NEXT_PUBLIC_MIDNIGHT_PRIVATE_STATE_PASSWORD` | **≥16 chars** — Level.js private-state store (browser). |
+| `NEXT_PUBLIC_MIDNIGHT_PRIVATE_STATE_PASSWORD` | ≥16 characters — Level.js private-state store in the browser. |
 | `NEXT_PUBLIC_MIDNIGHT_NETWORK_ID` or `NEXT_PUBLIC_MIDNIGHT_NETWORK` | e.g. `preprod` (banner uses the logical network). |
-| `NEXT_PUBLIC_SHADOWVOTE_ZK_BASE` | URL or path to published ZK assets (default `/shadowvote-zk` after `npm run zk:public`). |
-| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Optional: off-chain proposal “waiting room” (`public.proposals`). |
-| `NEXT_PUBLIC_MIDNIGHT_USE_PROOF_PROXY` | Set to `1` when the hosted app should prove via **`/api/midnight-proof`** (needed for Vercel + ngrok/Pinggy). Pair with server-only **`PROOF_SERVER_URL`**. |
-| `PROOF_SERVER_URL` | **Server-only** (do not prefix `NEXT_PUBLIC_`). Base URL your tunnel exposes to **`http://localhost:6300`** (e.g. `https://frostbite-banner-unwound.ngrok-free.dev`). Also used for `npm run deploy`. |
+| `NEXT_PUBLIC_SHADOWVOTE_ZK_BASE` | URL or path to ZK assets (default `/shadowvote-zk` after `npm run zk:public`). |
+| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Optional off-chain proposal waiting room (`public.proposals`). |
+| `NEXT_PUBLIC_MIDNIGHT_USE_PROOF_PROXY` | `1` to prove via `/api/midnight-proof` (Vercel + ngrok/Pinggy). Pair with server-only `PROOF_SERVER_URL`. |
+| `PROOF_SERVER_URL` | **Server-only** — do not prefix `NEXT_PUBLIC_`. Tunnel to `http://localhost:6300`. Also used by `npm run deploy`. |
 
-See `.env.example` for indexer URLs, deploy seed, and full proof / proxy notes.
+Indexer URLs, deploy seed, and proof/proxy notes: `.env.example`.
 
-### 3. Compile contract & publish ZK artifacts
+### 3. Compile the contract and publish ZK artifacts
 
 ```bash
 npm run compile:contract
 npm run zk:public
 ```
 
-Ensure `public/shadowvote-zk` (or your custom base URL) contains the prover artifacts expected by the Compact build.
+`public/shadowvote-zk` (or your custom base URL) must contain the prover artifacts from the Compact build.
 
-### 4. Proof server (Midnight tutorial image)
+### 4. Proof server
 
-Required for **CLI deployment** and some local proving flows:
+Needed for CLI deploy and some local proving flows:
 
 ```bash
 npm run start-proof-server
-# uses `docker compose` when available, otherwise `docker-compose`
-# listens on http://127.0.0.1:6300 — set PROOF_SERVER_URL in .env if needed
+# docker compose when available, else docker-compose
+# http://127.0.0.1:6300 — set PROOF_SERVER_URL if needed
 ```
 
-**WSL2:** Docker must see your distro (Docker Desktop → **Settings → Resources → WSL integration**). If `docker version` fails inside WSL, run `npm run start-proof-server` from **PowerShell on Windows** instead, or fix integration and open a new WSL terminal.
+**WSL2:** enable Docker Desktop → Settings → Resources → **WSL integration**. If `docker version` fails inside WSL, run `npm run start-proof-server` from **Windows PowerShell**, or fix integration and open a new WSL terminal.
 
 ### 5. Run the app
 
@@ -122,7 +167,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000). Connect Lace, then use **Dashboard** for proposals and votes.
 
-If voting fails with **`CACHE MISMATCH ERROR`** or a witness error mentioning **`voterMembershipPath`**, Next.js is still serving the old Merkle `Contract` while this repo is **Open DAO** (only `voterSecret`). Recompile, republish ZK assets, and clear the Next cache:
+If you see **CACHE MISMATCH ERROR** or a witness error mentioning **`voterMembershipPath`**, Next.js is still serving the old Merkle contract. This repo is **Open DAO** (`voterSecret` only). Recompile, republish ZK assets, and clear `.next`:
 
 ```bash
 npm run compile:contract
@@ -132,107 +177,115 @@ Remove-Item -Recurse -Force .next
 npm run dev
 ```
 
-`npm run build` runs a check that `build/contract` matches Open DAO before producing a production bundle.
+`npm run build` checks that `build/contract` matches Open DAO before a production bundle.
 
-**Voting from an HTTPS site (e.g. Vercel)** — If you see *“Proof server is HTTP on localhost…”* or *`prove` … `Failed to fetch`*: browsers **cannot** call `http://127.0.0.1:6300` from `https://your-app.vercel.app` (mixed content + that host is **_your_ machine_, not visitors’). **`PROOF_SERVER_URL`** alone only helps **Node** (`npm run deploy`), not the **browser**. See **Deploying to Vercel → Proving** below.
+**HTTPS hosts (e.g. Vercel):** the browser cannot call `http://127.0.0.1:6300` (mixed content; that host is *your* machine). `PROOF_SERVER_URL` alone helps **Node** (`npm run deploy`), not visitors’ browsers. See [Proving on Vercel](#proving-zk-on-vercel).
 
-### 6. Deploy contract (optional)
+### 6. Deploy the contract (optional)
 
-With wallet seed and proof server up:
+With wallet seed and proof server running:
 
 ```bash
 npm run deploy
 ```
 
-Writes `deployment.json` (contract address, `model: open-dao`, timestamp).
+Writes `deployment.json` (address, `model: open-dao`, timestamp).
+
+---
 
 ## Production build
 
-Configuration lives in **`next.config.ts`** (TypeScript is the supported single source of truth for this repo). It includes:
-
-- `experiments.asyncWebAssembly`, `layers`, and `topLevelAwait` for WASM-heavy Midnight dependencies.
-- `output.environment.asyncFunction` for clean WASM loader output.
-- `serverExternalPackages` for select `@midnight-ntwrk/*` ledger/WASM packages to reduce SSR tracing issues on Vercel.
-- Aliases for `@shadowvote/contract` and the `isomorphic-ws` shim.
+`next.config.ts` is the source of truth. It enables WASM-friendly experiments (`asyncWebAssembly`, `layers`, `topLevelAwait`), `output.environment.asyncFunction`, `serverExternalPackages` for selected `@midnight-ntwrk/*` packages, and aliases for `@shadowvote/contract` and the `isomorphic-ws` shim.
 
 ```bash
 npm run build
 npm start
 ```
 
+---
+
 ## Deploying to Vercel
 
-1. **Import** the Git repository and set the **Root Directory** to this project if it lives in a monorepo.
-2. **Environment variables** — Vercel → your project → **Settings → Environment Variables**. Add the same `NEXT_PUBLIC_*` values you use locally (Production + Preview as needed). Never commit secrets. **For voting with a tunnel to your local proof-server**, include at least:
+1. Import this Git repository. Set **Root Directory** if the app is not the repo root.
+2. **Settings → Environment Variables** — same `NEXT_PUBLIC_*` values as local (Production and Preview as needed). Never commit secrets. For a tunnel to a local proof server:
 
-| Name | Example value | Visibility |
-| --- | --- | --- |
-| `NEXT_PUBLIC_MIDNIGHT_USE_PROOF_PROXY` | `1` | Exposed to browser (normal for `NEXT_PUBLIC_*`). |
-| `PROOF_SERVER_URL` | `https://frostbite-banner-unwound.ngrok-free.dev` | **Server-only** — Vercel sends this to `/api/midnight-proof`, which forwards to your tunnel → `http://localhost:6300`. Replace with your current ngrok host. |
+| Name | Example | Visibility |
+| :--- | :--- | :--- |
+| `NEXT_PUBLIC_MIDNIGHT_USE_PROOF_PROXY` | `1` | Browser (`NEXT_PUBLIC_*`). |
+| `PROOF_SERVER_URL` | `https://your-tunnel.ngrok-free.dev` | **Server-only.** Vercel `/api/midnight-proof` → tunnel → `http://localhost:6300`. |
 
-Do **not** set `NEXT_PUBLIC_MIDNIGHT_PROVER_SERVER_URI` to the ngrok URL when using the proxy (CORS).
+Do **not** put the ngrok URL in `NEXT_PUBLIC_MIDNIGHT_PROVER_SERVER_URI` when using the proxy (CORS).
 
-3. **Build** — `npm run build` (default Install Command `npm install`).
-4. **Output** — Next.js default (no static export required).
-5. **WASM** — `vercel.json` adds `Content-Type: application/wasm` for `*.wasm`. Do **not** add a SPA catch-all rewrite to `index.html` (that pattern breaks App Router).
-6. **ZK assets** — Run `npm run zk:public` in CI before build, or host artifacts on a CDN and set `NEXT_PUBLIC_SHADOWVOTE_ZK_BASE` to that base URL.
-7. **Mainnet** — Set `NEXT_PUBLIC_MIDNIGHT_NETWORK=mainnet` (or equivalent id) only when you intentionally ship prod; the **Network** banner hides on mainnet.
+3. Build: `npm run build` (install: `npm install`).
+4. Output: Next.js default — no static export.
+5. WASM: `vercel.json` sets `Content-Type: application/wasm` for `*.wasm`. Do **not** add an SPA catch-all rewrite to `index.html` (it breaks App Router).
+6. ZK assets: run `npm run zk:public` in CI, or host artifacts on a CDN and set `NEXT_PUBLIC_SHADOWVOTE_ZK_BASE`.
+7. Mainnet: set `NEXT_PUBLIC_MIDNIGHT_NETWORK=mainnet` only when you intend production; the network banner hides on mainnet.
 
 ### Proving (ZK) on Vercel
 
-Public Midnight docs assume a **local** proof server (`http://127.0.0.1:6300`). A hosted **HTTPS** app cannot call **HTTP localhost** from the browser (mixed content + wrong host). **CORS** may also block direct calls to some HTTPS provers.
+Midnight’s default proof server is **local HTTP** (`127.0.0.1:6300`). A public HTTPS app cannot call that from the browser. CORS can also block a raw HTTPS prover.
 
-**What works:**
+**What works**
 
-1. **Lace in-wallet proving** — If the connector exposes `getProvingProvider`, this app uses it first (no extra env).
-2. **Same-origin proof proxy (built-in)** — Set **`NEXT_PUBLIC_MIDNIGHT_USE_PROOF_PROXY=1`**. The browser only calls **`/api/midnight-proof/check`** and **`/prove`** on your app; **Vercel** forwards to **`PROOF_SERVER_URL`** (tunnel base URL **without** `/check`). Do **not** put the tunnel in **`NEXT_PUBLIC_MIDNIGHT_PROVER_SERVER_URI`**: the Midnight proof server does **not** send CORS headers, so the browser would get **`Failed to fetch`** on **`check`**. Pinggy/ngrok URLs belong in **server-only** `PROOF_SERVER_URL`.
-3. **Direct browser → prover** — Set **`NEXT_PUBLIC_MIDNIGHT_PROVER_SERVER_URI`** to an **HTTPS** origin the browser can call (and that allows your site’s origin if cross-origin).
+1. **Lace in-wallet proving** — if the connector exposes `getProvingProvider`, the app uses it first (no extra env).
+2. **Same-origin proxy** — `NEXT_PUBLIC_MIDNIGHT_USE_PROOF_PROXY=1`. The browser calls `/api/midnight-proof/check` and `/prove` on your app; the server forwards to `PROOF_SERVER_URL` (base URL, no `/check`). Keep ngrok/Pinggy **out** of `NEXT_PUBLIC_MIDNIGHT_PROVER_SERVER_URI` — the proof server does not send CORS headers.
+3. **Direct HTTPS prover** — `NEXT_PUBLIC_MIDNIGHT_PROVER_SERVER_URI` to an origin the browser can call (and that allows your site if cross-origin).
 
-`PROOF_SERVER_URL` is also used by **`npm run deploy`**; with the proxy enabled it doubles as the server-side proof upstream.
+`PROOF_SERVER_URL` is also used by `npm run deploy`.
 
-**Example — ngrok → local proof-server (port 6300)**
+**Example — ngrok → local proof server (port 6300)**
 
-1. Start the Midnight proof server locally (e.g. `npm run start-proof-server` / Docker on **`6300`**).
-2. In another terminal, expose it:
-   ```bash
-   ngrok http 6300
-   ```
-3. One working tunnel maps **`https://frostbite-banner-unwound.ngrok-free.dev`** → **`http://localhost:6300`**. (Free ngrok URLs change when you restart unless you use a [reserved domain](https://ngrok.com/docs/guides/how-to-set-up-a-custom-domain/).)
-4. Set on **Vercel** (or `.env` for local prod-style tests):
-   - **`NEXT_PUBLIC_MIDNIGHT_USE_PROOF_PROXY`** = `1`
-   - **`PROOF_SERVER_URL`** = `https://frostbite-banner-unwound.ngrok-free.dev` (base URL only; no `/check`)
-5. Do **not** set **`NEXT_PUBLIC_MIDNIGHT_PROVER_SERVER_URI`** to ngrok when using the proxy. Keep the ngrok process running while you vote.
+```bash
+npm run start-proof-server
+# other terminal:
+ngrok http 6300
+```
+
+On Vercel (or in `.env`):
+
+- `NEXT_PUBLIC_MIDNIGHT_USE_PROOF_PROXY=1`
+- `PROOF_SERVER_URL=https://<your-ngrok-host>` (no `/check`)
+
+Free ngrok URLs change on restart unless you reserve a domain. Leave ngrok running while you vote.
+
+---
 
 ## Project layout
 
 ```
-app/              App Router pages (landing, dashboard, proposal detail)
+app/              Landing, dashboard, proposal detail (App Router)
 components/       UI (Stitches + Motion)
-config/           Network tier helpers
+config/           Network helpers
 contexts/         Toast provider
 contracts/        Compact sources
-hooks/            Wallet, identity, ShadowVote / indexer sync
+hooks/            Wallet, identity, indexer sync
 lib/              Providers, contract loader
 public/           Static assets + shadowvote-zk after zk:public
-scripts/          deploy.ts, compile helpers
-utils/            Nullifier / voting crypto helpers
+scripts/          Deploy and compile helpers
+utils/            Nullifier / voting crypto
 build/            Generated contract + zkir (after compile)
 ```
 
+---
+
 ## Security
 
-- **Never commit** `.env`, seeds, mnemonics, or `deployment.json` if it ties to funded keys. This repository’s `.gitignore` excludes them; use `.env.example` as the template only.
-- If a seed or mnemonic ever appeared in a file that was shared or committed, **rotate** it: move funds to a new wallet and treat the old material as compromised.
-- `get-key.mjs` reads **`MIDNIGHT_MNEMONIC` from the environment only** — do not paste phrases into source files.
-- `midnight.config.json` in the repo holds **public** endpoints only; keep wallet material in private config or env.
+- Never commit `.env`, seeds, mnemonics, or `deployment.json` tied to funded keys. `.gitignore` excludes them; use `.env.example` only as a template.
+- If a seed or mnemonic was ever shared or committed, **rotate**: move funds to a new wallet and treat the old material as compromised.
+- `get-key.mjs` reads `MIDNIGHT_MNEMONIC` from the environment only — never paste phrases into source.
+- `midnight.config.json` in this repo holds **public** endpoints. Keep wallet material in env or private config.
 
-## License
+---
 
-- Review Midnight Foundation licensing for **ledger / compact / JS SDK** packages in `node_modules`.
-- This README is documentation only; audit **contracts** and **deployment** before mainnet or high-value use.
+## License and support
 
-## Support
+Midnight ledger, Compact, and JS SDK packages in `node_modules` follow **Midnight Foundation** licensing. This README is documentation only — audit contracts and deployment before mainnet or high-value use.
 
-- **Midnight** docs and tutorials: [Midnight Network](https://midnight.network/)
-- Contract logic: `contracts/shadowvote.compact`
-- Troubleshooting builds: confirm `next.config.ts` is unchanged by stale `vercel.json` SPA rewrites and that WASM files are reachable at `NEXT_PUBLIC_SHADOWVOTE_ZK_BASE`.
+| | |
+| :--- | :--- |
+| Midnight | [midnight.network](https://midnight.network/) |
+| Contract | `contracts/shadowvote.compact` |
+| Builds | Keep `next.config.ts` free of stale SPA rewrites in `vercel.json`. WASM must be reachable at `NEXT_PUBLIC_SHADOWVOTE_ZK_BASE`. |
+
+</div>
