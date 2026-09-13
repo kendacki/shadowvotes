@@ -9,6 +9,10 @@ Private governance on Midnight — people and DAOs vote with zero-knowledge proo
 </p>
 
 <p>
+<strong><a href="https://shadowvotesapp.vercel.app">Live app — shadowvotesapp.vercel.app</a></strong>
+</p>
+
+<p>
 <a href="#how-it-works">How it works</a> ·
 <a href="#features">Features</a> ·
 <a href="#network-deployments">Live deployment</a> ·
@@ -22,7 +26,7 @@ Private governance on Midnight — people and DAOs vote with zero-knowledge proo
 
 ---
 
-**ShadowVote** is an open DAO on [Midnight](https://midnight.network/): token-gated participation, zero-knowledge votes through **Lace**, and live tallies — without linking a vote to a wallet on the public ledger.
+**ShadowVote** is an open DAO on [Midnight](https://midnight.network/): token-gated participation, zero-knowledge votes through **Lace**, and live tallies — without linking a vote to a wallet on the public ledger. Use the hosted app at **[shadowvotesapp.vercel.app](https://shadowvotesapp.vercel.app)**.
 
 There is no voter registry and no admin allowlist. Anyone who meets the unshielded **tNIGHT** gate can prove a ballot in the browser, submit it through Lace, and leave only a nullifier and a count on-chain.
 
@@ -86,6 +90,7 @@ ShadowVote is live on **Midnight Preprod**. Use Lace and testnet tNIGHT (faucet)
 
 | | |
 | :--- | :--- |
+| **App** | [https://shadowvotesapp.vercel.app](https://shadowvotesapp.vercel.app) |
 | **Network** | Midnight Preprod |
 | **Contract** | `b1eb2448c2164288361542720e1b8a822a28c5f05bd1a1456fb24fa293536a65` |
 | **Wallet** | [Lace Midnight Preview](https://chromewebstore.google.com/detail/lace-midnight-preview/hgeekaiplokcnmakghbdfbgnlfheichg) |
