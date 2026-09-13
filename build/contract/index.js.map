@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "index.js",
+  "sourceRoot": "../../",
+  "sources": ["contracts/shadowvote.compact", "compiler/standard-library.compact"],
+  "names": [],
+  "mappings": ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;EAqBA;;;;;;;;;;;;;MAqBA,AAAA,IAcC;;;;;cAdmB,YAAoB;;;;;;;;;;;;;;;;;;yCAApB,YAAoB;;;;;;;iEAApB,YAAoB;;;OAcvC;;;;GAnCe;EAAhB;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;IANA;;;;;;;;;;yEAAiD;IACjD;;;;;;;;;;yEAAyC;;;;;;;GAKzB;ECrBhB,AAAA,kBAAA;oEAAA;;;ED0BA,AAAA,cAAiC;;0DAAjC,WAAiC;;;;;;;;;;;;;;GAAA;EAKjC,AAAA,mBAMC,CANwB,QAAiB,EAAE,YAAoB;;mCAG5D,QAAM;;wEACN,YAAU;;GAEb;EAKD,AAAA,OAcC,4BAdmB,YAAoB;UAChC,KAA0B,GAAX,YAAU;UACzB,IAAkB;UAClB,WAA+C,4BAAT,IAAE,EAAE,KAAG;qDAC3C;;;;;;;;;;;4KAAkB,WAAS;;;;0HAAjB;;IAElB;;;;;;;;;;2HAAkB,WAAS;;;;;wEAAjB;gCAEN;;;;;;;;;;;uJAAiB,KAAG;;;;qGAAX;;YACL,cAAoC,2BAArB;;;;;;;;;;;;;;gJAAiB,KAAG;;;0HAAX;YAC9B,KAAS;;;;;uBAAc,cAAY;MAAnC;;;;;;;;;;6HAAiB,KAAG;;;6HAApB,KAAS;;;0EAAA;;YAET,KAAS;MAAT;;;;;;;;;;6HAAiB,KAAG;;;6HAApB,KAAS;;;0EAAA;;;GAEZ;;;;;;;;;;;;;;;;IAzCD;;;;;uCAAA;;;;;;;;;;;;;;;;4GAAiD;;;;;;uCAAjD;;;;;;;;;;;;4GAAiD;;;;;;;;;;;;;;uCAAjD;;;;;;;;;;;;;;;4GAAiD;;;;;;;;;;;;;;uCAAjD;;;;;;;;;;;;;;;;;4GAAiD;;;;;;;;;KAAA;IACjD;;;;;uCAAA;;;;;;;;;;;;;;;;4GAAyC;;;;;;uCAAzC;;;;;;;;;;;;4GAAyC;;;;;;;;;;;;;;uCAAzC;;;;;;;;;;;;;;;4GAAyC;;;;;;;;;KAAA;;;;;;;;;;"
+}
