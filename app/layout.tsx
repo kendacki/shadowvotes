@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { NetworkBanner } from '@/components/NetworkBanner';
 import { Poppins } from 'next/font/google';
 import { ClientRoot } from './ClientRoot';
 import './globals.css';
@@ -41,7 +40,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           minHeight: '100vh',
         }}
       >
-        <NetworkBanner />
         <ClientRoot>
           <main
             style={{
